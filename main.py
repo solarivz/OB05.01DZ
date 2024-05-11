@@ -118,6 +118,21 @@ class Meteor:
     def update(self):
         self.rect.y += self.speed
 
+class Bullet:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.speed = 10
+        self.color = (255, 255, 255)
+        self.radius = 2
+
+    def move(self):
+        self.y -= self.speed
+
+    def draw(self, surface):
+        pygame.draw.circle(surface, self.color, (self.x, self.y), self.radius)
+
+
 # Инициализация корабля игрока
 player = Spaceship(400, 500, "images/player.png")
 
@@ -142,25 +157,33 @@ for _ in range(100):
 frameCounter = 0
 frameStep = 0 # Скорость звезды
 
+
+
+bullets = []  # Список активных пуль
+
+start_time = time.time()  # Записываем время начала игры
+meteor_spawn_interval = 3  # Интервал появления метеоритов (в секундах)
+meteor_spawn_count = 5  # Количество метеоритов, появляющихся за раз
+
 # Главный игровой цикл
 running = True
-start_time = time.time()  # Записываем время начала игры
 while running:
     screen.fill(black)  # Очистка экрана
 
     elapsed_time = time.time() - start_time  # Считаем прошедшее время
     seconds = int(elapsed_time)  # Преобразуем время в целое количество секунд
-
     clock.tick(FPS)
 
     current_time = time.time()
-    if len(meteors) < 1 and current_time > next_meteor_time:
-        x = random.randint(15, screen_width - 15)
-        speed = random.randint(1, 5)
-        meteors.append(Meteor(x, 0, speed, "images/meteor.png"))
 
-        next_meteor_time = current_time + random_interval
-        random_interval = 10 if random_interval != 10 else random.randint(5, 10)
+
+    # Появление метеоритов
+    if current_time - start_time > meteor_spawn_interval:
+        start_time = current_time  # Обновляем время последнего появления метеоритов
+        for _ in range(meteor_spawn_count):
+            x = random.randint(15, screen_width - 15)
+            speed = random.randint(1, 5)
+            meteors.append(Meteor(x, 0, speed, "images/meteor.png"))
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -183,7 +206,10 @@ while running:
                 current_volume = pygame.mixer.music.get_volume()
                 if current_volume < 1.0:
                     pygame.mixer.music.set_volume(current_volume + 0.1)  # Увеличение громкости
-
+            elif event.key == pygame.K_SPACE:
+            # Создаем пулю и добавляем в список пуль
+                new_bullet = Bullet(player.rect.centerx, player.rect.top)
+                bullets.append(new_bullet)
 
     pressed_keys = pygame.key.get_pressed()
     if pressed_keys[pygame.K_LEFT] and player.rect.x > 0:
@@ -233,6 +259,25 @@ while running:
     # Движение и отрисовка всех объектов
     player.draw(screen)
 
+    # Перемещение и отрисовка всех активных пуль
+    for bullet in bullets:
+        bullet.move()
+        bullet.draw(screen)
+        # Проверка столкновений пуль с метеоритами
+        for meteor in meteors:
+            if bullet.x > meteor.rect.left and bullet.x < meteor.rect.right and bullet.y > meteor.rect.top and bullet.y < meteor.rect.bottom:
+                meteors.remove(meteor)
+                # Если метеорит большой, удаляем его сразу
+                if meteor.size > 2:
+                    pygame.mixer.Sound("sounds/meteor_destroyed.mp3").play()  # Звук уничтожения метеорита
+                    continue
+                else:
+                    meteor.size -= 1  # Уменьшаем размер метеорита
+                    if meteor.size == 0:
+                        pygame.mixer.Sound("sounds/meteor_destroyed.mp3").play()  # Звук уничтожения метеорита
+
+    # Удаляем пули, вышедшие за пределы экрана
+    bullets = [bullet for bullet in bullets if bullet.y > 0]
 
     # Выводим время на экран
     font = pygame.font.Font(None, 36)
