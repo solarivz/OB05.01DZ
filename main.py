@@ -41,7 +41,7 @@ red = (255, 0, 0)
 
 
 # Загрузка музыки
-music_files = ["music/background_music1.mp3", "music/background_music2.mp3"]  # Список файлов музыки
+music_files = ["music/background_music1.mp3", "music/background_music2.mp3", "music/background_music3.mp3"]  # Список файлов музыки
 current_music_index = 0  # Индекс текущей музыки
 pygame.mixer.music.load(music_files[current_music_index])
 # Установка громкости музыки (от 0.0 до 1.0)
@@ -57,7 +57,7 @@ class Spaceship:
         self.scale_factor = 0.3
         self.image = load_scaled_image(image_path, self.scale_factor)
         self.rect = self.image.get_rect(center=(x, y))
-        self.health = 5000000
+        self.health = 5
 
         # Начальное количество жизней
         self.blink_interval = 0.1  # Интервал мигания корабля (в секундах)
