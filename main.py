@@ -9,6 +9,14 @@ def load_scaled_image(image_path, scale_factor):
     height = int(image.get_height() * scale_factor)
     return pygame.transform.scale(image, (width, height))
 
+# Функция для загрузки следующего трека
+def load_next_music():
+    global current_music_index
+    current_music_index = (current_music_index + 1) % len(music_files)
+    pygame.mixer.music.load(music_files[current_music_index])
+    pygame.mixer.music.play(loops=-1)
+
+
 # Настройки экрана
 screen_width = 800
 screen_height = 600
@@ -28,6 +36,18 @@ clock = pygame.time.Clock()
 # Цвета
 black = (0, 0, 0)
 white = (255, 255, 255)
+yellow = (255, 255, 0)
+red = (255, 0, 0)
+
+
+# Загрузка музыки
+music_files = ["music/background_music1.mp3", "music/background_music2.mp3"]  # Список файлов музыки
+current_music_index = 0  # Индекс текущей музыки
+pygame.mixer.music.load(music_files[current_music_index])
+# Установка громкости музыки (от 0.0 до 1.0)
+pygame.mixer.music.set_volume(0.5)  # Начальная громкость музыки
+music_playing = True  # Флаг для отслеживания воспроизведения музыки
+
 
 # Классы кораблей
 class Spaceship:
@@ -36,14 +56,21 @@ class Spaceship:
         self.y = y
         self.scale_factor = 0.3
         self.image = load_scaled_image(image_path, self.scale_factor)
-        self.attack = 100
-        self.shield = 100
-        self.health = 100
         self.rect = self.image.get_rect(center=(x, y))
-        self.bullets = []
+        self.health = 3  # Начальное количество жизней
+        self.blink_interval = 0.1  # Интервал мигания корабля (в секундах)
+        self.last_blink_time = 0  # Время последнего мигания
+        self.blink_duration = 3  # Продолжительность мигания (в секундах)
 
     def draw(self, surface):
         surface.blit(self.image, self.rect)
+        # Мигание корабля при столкновении
+        current_time = time.time()
+        if current_time - self.last_blink_time > self.blink_interval:
+            self.last_blink_time = current_time
+            if current_time - self.last_blink_time < self.blink_duration:
+                # Отображаем корабль только во время мигания
+                surface.blit(self.image, self.rect)
 
     def move(self, dx, dy):
         self.rect.x += dx
@@ -51,6 +78,15 @@ class Spaceship:
 
     def fire(self):
         pass
+
+    def take_damage(self):
+        # Уменьшаем количество жизней и обрабатываем их конец
+        self.health -= 1
+        if self.health <= 0:
+            # Корабль уничтожен
+            print("Spaceship destroyed!")
+            pygame.quit()
+            quit()  # Выход из игры
 
 class Star:
     def __init__(self, x, y, speed):
@@ -110,11 +146,12 @@ frameStep = 0 # Скорость звезды
 running = True
 start_time = time.time()  # Записываем время начала игры
 while running:
+    screen.fill(black)  # Очистка экрана
+
     elapsed_time = time.time() - start_time  # Считаем прошедшее время
     seconds = int(elapsed_time)  # Преобразуем время в целое количество секунд
 
     clock.tick(FPS)
-    screen.fill(black)  # Очистка экрана
 
     current_time = time.time()
     if len(meteors) < 1 and current_time > next_meteor_time:
@@ -128,6 +165,25 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_F5:
+                load_next_music()  # Переключение на следующий трек
+            elif event.key == pygame.K_F1:
+                if music_playing:
+                    pygame.mixer.music.pause()  # Приостановка воспроизведения
+                    music_playing = False
+                else:
+                    pygame.mixer.music.unpause()  # Возобновление воспроизведения
+                    music_playing = True
+            elif event.key == pygame.K_F2:
+                current_volume = pygame.mixer.music.get_volume()
+                if current_volume > 0.1:
+                    pygame.mixer.music.set_volume(current_volume - 0.1)  # Уменьшение громкости
+            elif event.key == pygame.K_F4:
+                current_volume = pygame.mixer.music.get_volume()
+                if current_volume < 1.0:
+                    pygame.mixer.music.set_volume(current_volume + 0.1)  # Увеличение громкости
+
 
     pressed_keys = pygame.key.get_pressed()
     if pressed_keys[pygame.K_LEFT] and player.rect.x > 0:
@@ -158,15 +214,32 @@ while running:
     for meteor in meteors:
         meteor.update()
         meteor.draw(screen)
-        if meteor.rect.colliderect(pygame.Rect(0, screen_height, screen_width, 1)):
+        if meteor.rect.colliderect(player.rect):
+            # Столкновение метеора с кораблем
+            # Звук столкновения
+            pygame.mixer.Sound("sounds/explosion.mp3").play()
+            # Удаление метеора
             meteors.remove(meteor)
+            # Запуск таймера
+            start_time = time.time()
+            while time.time() - start_time < 0.05:
+                # Отрисовка мигающего экрана
+                pygame.draw.rect(screen, red, screen.get_rect())
+                pygame.display.update()
+                pygame.time.delay(3)  # Задержка для мигания
+            # Повреждение корабля
+            player.take_damage()
 
     # Движение и отрисовка всех объектов
     player.draw(screen)
+
+
     # Выводим время на экран
     font = pygame.font.Font(None, 36)
     text = font.render("Time: " + str(seconds), True, white)
     screen.blit(text, (10, 10))
     pygame.display.update()  # Обновление экрана
 
+# Остановка музыки при завершении игры
+pygame.mixer.music.stop()
 pygame.quit()
