@@ -57,10 +57,12 @@ class Spaceship:
         self.scale_factor = 0.3
         self.image = load_scaled_image(image_path, self.scale_factor)
         self.rect = self.image.get_rect(center=(x, y))
-        self.health = 3  # Начальное количество жизней
+        self.health = 5000000
+
+        # Начальное количество жизней
         self.blink_interval = 0.1  # Интервал мигания корабля (в секундах)
         self.last_blink_time = 0  # Время последнего мигания
-        self.blink_duration = 3  # Продолжительность мигания (в секундах)
+        self.blink_duration = 1  # Продолжительность мигания (в секундах)
 
     def draw(self, surface):
         surface.blit(self.image, self.rect)
@@ -82,11 +84,7 @@ class Spaceship:
     def take_damage(self):
         # Уменьшаем количество жизней и обрабатываем их конец
         self.health -= 1
-        if self.health <= 0:
-            # Корабль уничтожен
-            print("Spaceship destroyed!")
-            pygame.quit()
-            quit()  # Выход из игры
+
 
 class Star:
     def __init__(self, x, y, speed):
@@ -156,15 +154,14 @@ for _ in range(100):
 
 frameCounter = 0
 frameStep = 0 # Скорость звезды
-
-
-
 bullets = []  # Список активных пуль
 
 start_time = time.time()  # Записываем время начала игры
 meteor_spawn_interval = 3  # Интервал появления метеоритов (в секундах)
 meteor_spawn_count = 5  # Количество метеоритов, появляющихся за раз
-
+score = 0  # Счетчик очков
+paused = False  # Флаг для отслеживания приостановки игры
+waiting = False
 # Главный игровой цикл
 running = True
 while running:
@@ -207,9 +204,14 @@ while running:
                 if current_volume < 1.0:
                     pygame.mixer.music.set_volume(current_volume + 0.1)  # Увеличение громкости
             elif event.key == pygame.K_SPACE:
-            # Создаем пулю и добавляем в список пуль
+                # Создаем пулю и добавляем в список пуль
                 new_bullet = Bullet(player.rect.centerx, player.rect.top)
                 bullets.append(new_bullet)
+            elif event.key == pygame.K_ESCAPE:
+                paused = not paused  # Переключаем флаг приостановки игры
+            elif event.key == pygame.K_RETURN and waiting == True:  # Если нажата клавиша Enter
+                # Перезапускаем игру
+                exec(open(__file__).read())  # Перезапуск скрипта
 
     pressed_keys = pygame.key.get_pressed()
     if pressed_keys[pygame.K_LEFT] and player.rect.x > 0:
@@ -256,6 +258,7 @@ while running:
             # Повреждение корабля
             player.take_damage()
 
+
     # Движение и отрисовка всех объектов
     player.draw(screen)
 
@@ -268,6 +271,10 @@ while running:
             if bullet.x > meteor.rect.left and bullet.x < meteor.rect.right and bullet.y > meteor.rect.top and bullet.y < meteor.rect.bottom:
                 meteors.remove(meteor)
                 # Если метеорит большой, удаляем его сразу
+                # Остальной код остается без изменений
+                # Увеличиваем счетчик очков за сбитые метеориты
+                score += 1
+                # Остальной код остается без изменений
                 if meteor.size > 2:
                     pygame.mixer.Sound("sounds/meteor_destroyed.mp3").play()  # Звук уничтожения метеорита
                     continue
@@ -283,7 +290,35 @@ while running:
     font = pygame.font.Font(None, 36)
     text = font.render("Time: " + str(seconds), True, white)
     screen.blit(text, (10, 10))
-    pygame.display.update()  # Обновление экрана
+    # Выводим счетчик очков на экран
+    font = pygame.font.Font(None, 36)
+    score_text = font.render("Score: " + str(score), True, white)
+    screen.blit(score_text, (10, 50))
+
+    # Выводим счетчик жизней корабля на экран
+    health_text = font.render("Health: " + str(player.health), True, white)
+    screen.blit(health_text, (10, 100))
+
+    # Проверяем, если счетчик жизней корабля стал равен 0, выводим сообщение о конце игры
+    if player.health <= 0:
+        game_over_text = font.render("Game Over! Score: " + str(score), True, white)
+        screen.blit(game_over_text, (screen_width // 2 - 150, screen_height // 2))
+        pygame.display.update()  # Обновление экрана
+
+        # Ожидаем нажатия клавиши, кроме Enter, для завершения игры
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    waiting = False
+                elif event.type == pygame.KEYDOWN and event.key != pygame.K_RETURN:
+                    running = False
+                    waiting = False
+
+    # Проверяем, если игра на паузе, не обновляем экран и не обрабатываем события
+    if not paused:
+        pygame.display.update()  # Обновление экрана
 
 # Остановка музыки при завершении игры
 pygame.mixer.music.stop()
