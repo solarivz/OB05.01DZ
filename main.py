@@ -1,13 +1,96 @@
+from abc import ABC, abstractmethod
 import pygame
 import random
 import time
 
-# Функция масштабирования изображений игровых обектов
-def load_scaled_image(image_path, scale_factor):
-    image = pygame.image.load(image_path)
-    width = int(image.get_width() * scale_factor)
-    height = int(image.get_height() * scale_factor)
-    return pygame.transform.scale(image, (width, height))
+
+class GameObject(ABC):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.rect = pygame.Rect(x, y, 0, 0)  # Создаем прямоугольник с начальными координатами x и y
+
+    @abstractmethod
+    def draw(self, surface):
+        pass
+
+    @staticmethod
+    def load_scaled_image(image_path, scale_factor):
+        image = pygame.image.load(image_path)
+        width = int(image.get_width() * scale_factor)
+        height = int(image.get_height() * scale_factor)
+        return pygame.transform.scale(image, (width, height))
+
+class Spaceship(GameObject):
+    def __init__(self, x, y, image_path):
+        super().__init__(x, y)
+        self.scale_factor = 0.3
+        self.image = self.load_scaled_image(image_path, self.scale_factor)
+        self.rect = self.image.get_rect(center=(x, y))
+        self.health = 5
+        self.blink_interval = 0.1
+        self.last_blink_time = 0
+        self.blink_duration = 1
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+        current_time = time.time()
+        if current_time - self.last_blink_time > self.blink_interval:
+            self.last_blink_time = current_time
+            if current_time - self.last_blink_time < self.blink_duration:
+                surface.blit(self.image, self.rect)
+
+    def move(self, dx, dy):
+        self.rect.x += dx
+        self.rect.y += dy
+
+    def fire(self):
+        pass
+
+    def take_damage(self):
+        self.health -= 1
+
+class Star(GameObject):
+    def __init__(self, x, y, speed):
+        super().__init__(x, y)
+        self.speed = speed
+
+    def update(self):
+        self.y += self.speed
+
+    def draw(self, surface):
+        pygame.draw.circle(surface, (255, 255, 255), (self.x, self.y), 1)
+
+class Meteor(GameObject):
+    def __init__(self, x, y, speed, image_path_meteor):
+        super().__init__(x, y)
+        self.size = random.randint(1, 5)
+        self.scale_factor = self.size / 50
+        self.image = self.load_scaled_image(image_path_meteor, self.scale_factor)
+        self.health = random.randint(10, 100)
+        self.rect = self.image.get_rect(center=(x, y))
+        self.speed = random.randint(1, 10)
+        self.durability = random.randint(50, 100) * self.scale_factor
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
+    def update(self):
+        self.rect.y += self.speed
+
+class Bullet(GameObject):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.speed = 10
+        self.color = (255, 255, 255)
+        self.radius = 2
+
+    def move(self):
+        self.y -= self.speed
+
+    def draw(self, surface):
+        pygame.draw.circle(surface, self.color, (self.x, self.y), self.radius)
+
 
 # Функция для загрузки следующего трека
 def load_next_music():
@@ -44,91 +127,10 @@ red = (255, 0, 0)
 music_files = ["music/background_music1.mp3", "music/background_music2.mp3", "music/background_music3.mp3"]  # Список файлов музыки
 current_music_index = 0  # Индекс текущей музыки
 pygame.mixer.music.load(music_files[current_music_index])
+
 # Установка громкости музыки (от 0.0 до 1.0)
 pygame.mixer.music.set_volume(0.5)  # Начальная громкость музыки
 music_playing = True  # Флаг для отслеживания воспроизведения музыки
-
-
-# Классы кораблей
-class Spaceship:
-    def __init__(self, x, y, image_path):
-        self.x = x
-        self.y = y
-        self.scale_factor = 0.3
-        self.image = load_scaled_image(image_path, self.scale_factor)
-        self.rect = self.image.get_rect(center=(x, y))
-        self.health = 5
-
-        # Начальное количество жизней
-        self.blink_interval = 0.1  # Интервал мигания корабля (в секундах)
-        self.last_blink_time = 0  # Время последнего мигания
-        self.blink_duration = 1  # Продолжительность мигания (в секундах)
-
-    def draw(self, surface):
-        surface.blit(self.image, self.rect)
-        # Мигание корабля при столкновении
-        current_time = time.time()
-        if current_time - self.last_blink_time > self.blink_interval:
-            self.last_blink_time = current_time
-            if current_time - self.last_blink_time < self.blink_duration:
-                # Отображаем корабль только во время мигания
-                surface.blit(self.image, self.rect)
-
-    def move(self, dx, dy):
-        self.rect.x += dx
-        self.rect.y += dy
-
-    def fire(self):
-        pass
-
-    def take_damage(self):
-        # Уменьшаем количество жизней и обрабатываем их конец
-        self.health -= 1
-
-
-class Star:
-    def __init__(self, x, y, speed):
-        self.x = x
-        self.y = y
-        self.speed = speed
-
-    def update(self):
-        self.y += self.speed
-    def draw(self, surface):
-        pygame.draw.circle(surface, white, (self.x, self.y), 1)
-
-class Meteor:
-    def __init__(self, x, y, speed, image_path_meteor):
-        self.x = x
-        self.y = y # Метеориты появляются в верхней части экрана y = 0
-        self.size = random.randint(1, 5)
-        self.scale_factor = self.size / 50
-        self.image = load_scaled_image(image_path_meteor, self.scale_factor)
-        self.health = (random.randint(10, 100))
-        self.rect = self.image.get_rect(center=(x, y))
-        self.speed = speed
-        self.speed = random.randint(1, 10)
-        self.durability = (random.randint(50, 100)) * self.scale_factor
-
-    def draw(self, surface):
-        surface.blit(self.image, self.rect)
-
-    def update(self):
-        self.rect.y += self.speed
-
-class Bullet:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        self.speed = 10
-        self.color = (255, 255, 255)
-        self.radius = 2
-
-    def move(self):
-        self.y -= self.speed
-
-    def draw(self, surface):
-        pygame.draw.circle(surface, self.color, (self.x, self.y), self.radius)
 
 
 # Инициализация корабля игрока
@@ -141,8 +143,7 @@ for _ in range(6):  # Ограничение по количеству мете�
     x = random.randint(15, screen_width - 15)
     speed = random.randint(1, 5)
     meteors.append(Meteor(x, 0, speed, "images/meteor.png"))
-next_meteor_time = time.time()
-random_interval = random.randint(1, 5)
+
 
 # Инициализация Звезды
 stars = []
@@ -162,6 +163,7 @@ meteor_spawn_count = 5  # Количество метеоритов, появл�
 score = 0  # Счетчик очков
 paused = False  # Флаг для отслеживания приостановки игры
 waiting = False
+
 # Главный игровой цикл
 running = True
 while running:
