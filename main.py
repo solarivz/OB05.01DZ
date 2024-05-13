@@ -144,7 +144,6 @@ for _ in range(6):  # Ограничение по количеству мете�
     speed = random.randint(1, 5)
     meteors.append(Meteor(x, 0, speed, "images/meteor.png"))
 
-
 # Инициализация Звезды
 stars = []
 for _ in range(100):
